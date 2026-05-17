@@ -32,3 +32,6 @@ Thumbs.db
 
 # Claude Code workspace (worktrees, plans, local memory — never commit)
 .claude/
+
+# Local working journal — see HISTORY.md
+HISTORY.md
