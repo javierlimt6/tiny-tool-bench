@@ -29,7 +29,14 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest==8.3.4"]
-needle = ["jax>=0.4.30"]
+needle = [
+    "jax>=0.4.30",
+    # Cactus's Needle is GitHub-only (no PyPI publish as of 2026-05). Pinned to
+    # commit 1c6fa9309f6d5b5b91738c9b6595ec7f709f5828 (main, 2026-05-16) so the
+    # Phase 2 adapter API surface (``generate``, ``load_checkpoint``,
+    # ``get_tokenizer``, ``SimpleAttentionNetwork``) is reproducibly fixed.
+    "needle @ git+https://github.com/cactus-compute/needle.git@1c6fa9309f6d5b5b91738c9b6595ec7f709f5828",
+]
 gpu = ["bitsandbytes>=0.43.0"]  # INT4 Gemma 4 E2B on 8GB VRAM
 report = ["matplotlib>=3.9.0"]
 
