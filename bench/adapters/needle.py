@@ -38,23 +38,48 @@ from bench.adapters.base import Adapter
 from bench.types import GenerationResult, PromptRecord
 
 
-def _flatten_params(parameters: dict) -> dict[str, str]:
-    """OpenAI schema → Needle's flat ``{arg: type_string}``.
+def _convert_params_for_needle(
+    parameters: dict, function_description: str = ""
+) -> dict[str, dict]:
+    """Convert BFCL/OpenAI parameters → Needle's canonical per-arg descriptor format.
 
-    BFCL's per-tool ``parameters`` is ``{"type":"object","properties":{<arg>:
-    {"type":<t>, ...}, ...},"required":[...]}``. Needle treats whatever sits
-    under the top-level ``parameters`` key as the argument-name → type map;
-    forwarding the full schema causes the model to emit ``"properties"`` as
-    the argument name.
+    Per Cactus's README (https://huggingface.co/Cactus-Compute/needle), Needle expects
+    each parameter as a full descriptor dict, not a bare type string:
+
+        {"location": {"type": "string", "description": "City name.", "required": true}}
+
+    BFCL ships ``{"type":"object","properties":{<arg>:{"type":<t>,"description":...}},
+    "required":[<arg>, ...]}`` — we translate by lifting ``properties`` to the top
+    level and folding the outer ``required`` list into a per-arg boolean.
+
+    Earlier iterations of this adapter flattened to ``{arg: type_string}``, which
+    dropped per-arg ``description`` and ``required`` fields entirely. The model
+    then had no way to know which args were required and what they were for,
+    causing the L2→L3 collapse observed on the personal-AI slice (0.68 → 0.28).
     """
-    props = parameters.get("properties", {}) if isinstance(parameters, dict) else {}
-    flat: dict[str, str] = {}
+    if not isinstance(parameters, dict):
+        return {}
+    props = parameters.get("properties", {})
+    required_set = set(parameters.get("required", []) or [])
+    converted: dict[str, dict] = {}
     for arg_name, spec in props.items():
-        if isinstance(spec, dict):
-            flat[arg_name] = str(spec.get("type", "string"))
-        else:
-            flat[arg_name] = "string"
-    return flat
+        if not isinstance(spec, dict):
+            converted[arg_name] = {
+                "type": "string",
+                "description": "",
+                "required": arg_name in required_set,
+            }
+            continue
+        converted[arg_name] = {
+            "type": str(spec.get("type", "string")),
+            "description": str(spec.get("description", "")),
+            "required": arg_name in required_set,
+        }
+        # Preserve enum if present — Cactus's README doesn't show it but the
+        # constrained decoder reads it when available.
+        if "enum" in spec:
+            converted[arg_name]["enum"] = spec["enum"]
+    return converted
 
 
 class _TimedStdout(io.TextIOBase):
@@ -119,16 +144,16 @@ class NeedleAdapter(Adapter):
         if not self._loaded:
             self.load()
 
-        # Needle expects a FLAT parameters dict ``{arg_name: type_string}`` per
-        # its HF README example:
-        #     [{"name":"get_weather","parameters":{"location":"string"}}]
-        # BFCL ships OpenAI-style schemas ``{"type":"object","properties":{...},
-        # "required":[...]}``; passing that through verbatim makes Needle treat
-        # ``"properties"`` as an argument name (verified on 5-prompt smoke,
-        # PR #?). This is PLAN.md §4.2's "Schema converter: OpenAI tool format
-        # → Needle's compact format".
+        # Needle expects the README-canonical format with full per-arg descriptors:
+        #     [{"name":"get_weather","description":"...","parameters":{
+        #         "location":{"type":"string","description":"City name.","required":true}}}]
+        # See _convert_params_for_needle for the BFCL → Needle translation.
         tools_compact = [
-            {"name": t.name, "parameters": _flatten_params(t.parameters)}
+            {
+                "name": t.name,
+                "description": t.description,
+                "parameters": _convert_params_for_needle(t.parameters, t.description),
+            }
             for t in prompt.tools
         ]
         tools_json = json.dumps(tools_compact, separators=(",", ":"))
