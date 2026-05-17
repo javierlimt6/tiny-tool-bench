@@ -3,13 +3,13 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "tiny-fc-bench"
+name = "tiny-tool-bench"
 version = "0.1.0"
 description = "Standardised function-calling benchmark for sub-2B language models."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "Apache-2.0" }
-authors = [{ name = "tiny-fc-bench contributors" }]
+authors = [{ name = "tiny-tool-bench contributors" }]
 keywords = ["function-calling", "benchmark", "small-language-models", "bfcl"]
 
 dependencies = [
@@ -34,7 +34,7 @@ gpu = ["bitsandbytes>=0.43.0"]  # INT4 Gemma 4 E2B on 8GB VRAM
 report = ["matplotlib>=3.9.0"]
 
 [project.scripts]
-tiny-fc-bench = "scripts.run_one:main"
+tiny-tool-bench = "scripts.run_one:main"
 
 [tool.setuptools.packages.find]
 where = ["."]

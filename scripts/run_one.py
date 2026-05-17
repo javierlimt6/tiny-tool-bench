@@ -16,7 +16,7 @@ from bench.types import CorrectnessResult, ResultRow
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        prog="tiny-fc-bench",
+        prog="tiny-tool-bench",
         description="Run one (config, dataset) sweep.",
     )
     parser.add_argument("config_path", type=Path, help="Path to YAML config")

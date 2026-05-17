@@ -1,12 +1,12 @@
-# tiny-fc-bench
+# tiny-tool-bench
 
 A standardised function-calling benchmark for sub-2B language models, designed for the on-device deployment tier (phones, watches, wearables, embedded hardware). It runs the full cohort (Needle, FunctionGemma, Qwen 2.5 0.5B, Granite 4.0 350M, LFM2.5 350M, Gemma 4 E2B) on BFCL v3, a synthetic OOD set, and an adversarial slice, with one canonical parser per output format on consistent hardware, so the numbers are directly comparable.
 
 ## Setup
 
 ```bash
-git clone https://github.com/<user>/tiny-fc-bench.git
-cd tiny-fc-bench
+git clone https://github.com/javierlimt6/tiny-tool-bench.git
+cd tiny-tool-bench
 python -m venv .venv && source .venv/bin/activate
 pip install -e .
 pytest tests/ -v
