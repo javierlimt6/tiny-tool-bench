@@ -145,12 +145,22 @@ def test_summarize_empty() -> None:
 
 
 def test_summarize_mix_of_levels() -> None:
+    def _cr(l1: bool, l2: bool, l3: bool, l4: bool, pf: bool, notes: str) -> CorrectnessResult:
+        return CorrectnessResult(
+            level_1_called=l1,
+            level_2_name=l2,
+            level_3_args=l3,
+            level_4_values=l4,
+            parse_failed=pf,
+            notes=notes,
+        )
+
     results = [
-        CorrectnessResult(True, True, True, True, False, "ok"),
-        CorrectnessResult(True, True, True, False, False, "wrong_values"),
-        CorrectnessResult(True, True, False, False, False, "wrong_args"),
-        CorrectnessResult(True, False, False, False, False, "wrong_name"),
-        CorrectnessResult(False, False, False, False, True, "parse_failed"),
+        _cr(True, True, True, True, False, "ok"),
+        _cr(True, True, True, False, False, "wrong_values"),
+        _cr(True, True, False, False, False, "wrong_args"),
+        _cr(True, False, False, False, False, "wrong_name"),
+        _cr(False, False, False, False, True, "parse_failed"),
     ]
     summary = summarize(results, seed=42, n_bootstrap=200)
     assert summary["n"] == 5

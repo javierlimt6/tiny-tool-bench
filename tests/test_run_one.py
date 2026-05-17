@@ -27,8 +27,19 @@ def _write_config(tmp_path: Path) -> Path:
 
 def _write_fake_results(tmp_path: Path) -> Path:
     results_path = tmp_path / "results.jsonl"
+    base_timing = {
+        "prefill_tokens": 200,
+        "decode_tokens": 25,
+        "ttft_ms": 800.0,
+        "total_ms": 1300.0,
+        "schema_tokens": 180,
+        "query_tokens": 15,
+    }
     rows = [
         {
+            "prompt_id": "p-0",
+            "raw_text": "<tool_call>{\"name\":\"foo\",\"arguments\":{}}</tool_call>",
+            "parsed": {"function_name": "foo", "arguments": {}},
             "correctness": {
                 "level_1_called": True,
                 "level_2_name": True,
@@ -36,9 +47,15 @@ def _write_fake_results(tmp_path: Path) -> Path:
                 "level_4_values": True,
                 "parse_failed": False,
                 "notes": "ok",
-            }
+            },
+            "timing": base_timing,
+            "config_hash": "0" * 16,
+            "git_commit": "unknown",
         },
         {
+            "prompt_id": "p-1",
+            "raw_text": "<tool_call>{\"name\":\"foo\",\"arguments\":{}}</tool_call>",
+            "parsed": {"function_name": "foo", "arguments": {}},
             "correctness": {
                 "level_1_called": True,
                 "level_2_name": True,
@@ -46,9 +63,15 @@ def _write_fake_results(tmp_path: Path) -> Path:
                 "level_4_values": False,
                 "parse_failed": False,
                 "notes": "wrong_args",
-            }
+            },
+            "timing": base_timing,
+            "config_hash": "0" * 16,
+            "git_commit": "unknown",
         },
         {
+            "prompt_id": "p-2",
+            "raw_text": "I cannot help",
+            "parsed": None,
             "correctness": {
                 "level_1_called": False,
                 "level_2_name": False,
@@ -56,7 +79,10 @@ def _write_fake_results(tmp_path: Path) -> Path:
                 "level_4_values": False,
                 "parse_failed": True,
                 "notes": "parse_failed",
-            }
+            },
+            "timing": base_timing,
+            "config_hash": "0" * 16,
+            "git_commit": "unknown",
         },
     ]
     with results_path.open("w", encoding="utf-8") as fh:
