@@ -24,6 +24,7 @@ from bench.types import ResultRow
 
 _ADAPTERS: dict[str, str] = {
     "qwen25_05b": "bench.adapters.qwen25_05b:Qwen25_05B_Adapter",
+    "needle": "bench.adapters.needle:NeedleAdapter",
 }
 
 _PARSERS: dict[str, str] = {
