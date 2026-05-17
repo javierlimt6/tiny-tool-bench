@@ -14,31 +14,69 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from bench.adapters.needle import _flatten_params
+from bench.adapters.needle import _convert_params_for_needle
 from bench.types import PromptRecord
 
 
-def test_flatten_params_openai_to_needle_format() -> None:
-    """BFCL ships OpenAI schemas; Needle wants a flat {arg: type_string} dict."""
+def test_convert_params_per_arg_descriptors() -> None:
+    """BFCL OpenAI schema → Needle's per-arg {type, description, required} descriptors."""
     schema = {
         "type": "object",
         "properties": {
             "base": {"type": "number", "description": "base length"},
-            "height": {"type": "number"},
+            "height": {"type": "number", "description": "height length"},
         },
         "required": ["base", "height"],
     }
-    assert _flatten_params(schema) == {"base": "number", "height": "number"}
+    assert _convert_params_for_needle(schema) == {
+        "base": {"type": "number", "description": "base length", "required": True},
+        "height": {"type": "number", "description": "height length", "required": True},
+    }
 
 
-def test_flatten_params_empty_schema() -> None:
-    assert _flatten_params({}) == {}
-    assert _flatten_params({"type": "object"}) == {}
+def test_convert_params_optional_arg_flagged_false() -> None:
+    """An arg not in `required` is `required: False` in Needle's format."""
+    schema = {
+        "type": "object",
+        "properties": {
+            "location": {"type": "string", "description": "City name."},
+            "units": {"type": "string", "description": "Temperature units."},
+        },
+        "required": ["location"],
+    }
+    out = _convert_params_for_needle(schema)
+    assert out["location"]["required"] is True
+    assert out["units"]["required"] is False
 
 
-def test_flatten_params_missing_type_defaults_to_string() -> None:
+def test_convert_params_preserves_enum() -> None:
+    schema = {
+        "properties": {
+            "mode": {"type": "string", "description": "Travel mode.", "enum": ["driving", "walking"]}
+        },
+        "required": ["mode"],
+    }
+    out = _convert_params_for_needle(schema)
+    assert out["mode"]["enum"] == ["driving", "walking"]
+
+
+def test_convert_params_empty_schema() -> None:
+    assert _convert_params_for_needle({}) == {}
+    assert _convert_params_for_needle({"type": "object"}) == {}
+
+
+def test_convert_params_missing_type_defaults_to_string() -> None:
     schema = {"properties": {"x": {"description": "no type"}}}
-    assert _flatten_params(schema) == {"x": "string"}
+    out = _convert_params_for_needle(schema)
+    assert out["x"]["type"] == "string"
+    assert out["x"]["description"] == "no type"
+    assert out["x"]["required"] is False
+
+
+def test_convert_params_missing_description_defaults_to_empty() -> None:
+    schema = {"properties": {"x": {"type": "integer"}}, "required": ["x"]}
+    out = _convert_params_for_needle(schema)
+    assert out["x"]["description"] == ""
 
 
 @pytest.fixture(autouse=True)
