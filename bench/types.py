@@ -38,7 +38,7 @@ class PromptRecord(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     id: str
-    source: Literal["bfcl_v3", "ood", "adversarial"]
+    source: Literal["bfcl_v3", "ood", "adversarial", "personal_ai"]
     category: str
     user_message: str
     tools: list[ToolSchema]
