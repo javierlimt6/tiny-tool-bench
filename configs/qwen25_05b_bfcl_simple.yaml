@@ -1,0 +1,8 @@
+display_name: "Qwen 2.5 0.5B on BFCL v3 simple"
+adapter: qwen25_05b
+parser: hermes
+dataset: bfcl_v3_simple
+dataset_path: data/bfcl/BFCL_v3_simple.json
+output_dir: results/runs
+quantization: fp16   # informational only in Phase 1
+seed: 42             # informational only in Phase 1
