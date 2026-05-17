@@ -38,6 +38,25 @@ from bench.adapters.base import Adapter
 from bench.types import GenerationResult, PromptRecord
 
 
+def _flatten_params(parameters: dict) -> dict[str, str]:
+    """OpenAI schema → Needle's flat ``{arg: type_string}``.
+
+    BFCL's per-tool ``parameters`` is ``{"type":"object","properties":{<arg>:
+    {"type":<t>, ...}, ...},"required":[...]}``. Needle treats whatever sits
+    under the top-level ``parameters`` key as the argument-name → type map;
+    forwarding the full schema causes the model to emit ``"properties"`` as
+    the argument name.
+    """
+    props = parameters.get("properties", {}) if isinstance(parameters, dict) else {}
+    flat: dict[str, str] = {}
+    for arg_name, spec in props.items():
+        if isinstance(spec, dict):
+            flat[arg_name] = str(spec.get("type", "string"))
+        else:
+            flat[arg_name] = "string"
+    return flat
+
+
 class _TimedStdout(io.TextIOBase):
     """Stdout wrapper that records perf-counter time of the first non-whitespace write.
 
@@ -100,12 +119,17 @@ class NeedleAdapter(Adapter):
         if not self._loaded:
             self.load()
 
-        # Needle takes a compact ``[{"name": ..., "parameters": ...}]`` list,
-        # dropping ``description`` (the SAN encoder doesn't read it). This is
-        # PLAN.md §4.2's "Schema converter: OpenAI tool format → Needle's
-        # compact format".
+        # Needle expects a FLAT parameters dict ``{arg_name: type_string}`` per
+        # its HF README example:
+        #     [{"name":"get_weather","parameters":{"location":"string"}}]
+        # BFCL ships OpenAI-style schemas ``{"type":"object","properties":{...},
+        # "required":[...]}``; passing that through verbatim makes Needle treat
+        # ``"properties"`` as an argument name (verified on 5-prompt smoke,
+        # PR #?). This is PLAN.md §4.2's "Schema converter: OpenAI tool format
+        # → Needle's compact format".
         tools_compact = [
-            {"name": t.name, "parameters": t.parameters} for t in prompt.tools
+            {"name": t.name, "parameters": _flatten_params(t.parameters)}
+            for t in prompt.tools
         ]
         tools_json = json.dumps(tools_compact, separators=(",", ":"))
 

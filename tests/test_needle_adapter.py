@@ -14,7 +14,31 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from bench.adapters.needle import _flatten_params
 from bench.types import PromptRecord
+
+
+def test_flatten_params_openai_to_needle_format() -> None:
+    """BFCL ships OpenAI schemas; Needle wants a flat {arg: type_string} dict."""
+    schema = {
+        "type": "object",
+        "properties": {
+            "base": {"type": "number", "description": "base length"},
+            "height": {"type": "number"},
+        },
+        "required": ["base", "height"],
+    }
+    assert _flatten_params(schema) == {"base": "number", "height": "number"}
+
+
+def test_flatten_params_empty_schema() -> None:
+    assert _flatten_params({}) == {}
+    assert _flatten_params({"type": "object"}) == {}
+
+
+def test_flatten_params_missing_type_defaults_to_string() -> None:
+    schema = {"properties": {"x": {"description": "no type"}}}
+    assert _flatten_params(schema) == {"x": "string"}
 
 
 @pytest.fixture(autouse=True)
