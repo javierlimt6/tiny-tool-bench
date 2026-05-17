@@ -2,12 +2,18 @@
 
 Uses HuggingFace transformers with greedy decoding and the tokenizer's
 built-in chat template, which emits Hermes-style `<tool_call>` blocks
-when `tools=` is provided.
+when `tools=` is provided. `ttft_ms` is measured for real by running
+`model.generate` in a background thread with a `TextIteratorStreamer`
+attached, then timing the arrival of the first emitted chunk in the
+main thread — PLAN.md §2 lists single-stream latency as a first-class
+metric so the prefill/decode split needs to be genuine.
 """
 
 from __future__ import annotations
 
 import time
+from threading import Thread
+from typing import Any
 
 from bench.adapters.base import Adapter
 from bench.types import GenerationResult, PromptRecord
@@ -70,19 +76,40 @@ class Qwen25_05B_Adapter(Adapter):
 
         prefill_tokens = int(input_ids.shape[1])
 
-        t0 = time.perf_counter()
-        output_ids = self._model.generate(
-            input_ids, max_new_tokens=512, do_sample=False
+        from transformers import TextIteratorStreamer
+
+        streamer = TextIteratorStreamer(
+            self._tokenizer, skip_prompt=True, skip_special_tokens=True
         )
+        captured: dict[str, Any] = {}
+
+        def _run() -> None:
+            captured["output_ids"] = self._model.generate(
+                input_ids,
+                streamer=streamer,
+                max_new_tokens=512,
+                do_sample=False,
+            )
+
+        t0 = time.perf_counter()
+        thread = Thread(target=_run)
+        thread.start()
+
+        ttft_ms: float | None = None
+        chunks: list[str] = []
+        for chunk in streamer:
+            if ttft_ms is None:
+                ttft_ms = (time.perf_counter() - t0) * 1000.0
+            chunks.append(chunk)
+        thread.join()
         total_ms = (time.perf_counter() - t0) * 1000.0
 
-        new_token_ids = output_ids[0, prefill_tokens:]
-        decode_tokens = int(new_token_ids.shape[0])
-        raw_text = self._tokenizer.decode(new_token_ids, skip_special_tokens=True)
-
-        # ttft_ms is approximated as per-token average wall time; true TTFT
-        # requires a streaming callback which Phase 1 deliberately skips.
-        ttft_ms = total_ms / max(1, decode_tokens)
+        output_ids = captured["output_ids"]
+        decode_tokens = int(output_ids.shape[1] - prefill_tokens)
+        raw_text = "".join(chunks)
+        # Degenerate case: model emitted nothing (immediate EOS). TTFT is undefined; report total.
+        if ttft_ms is None:
+            ttft_ms = total_ms
 
         return GenerationResult(
             raw_text=raw_text,
