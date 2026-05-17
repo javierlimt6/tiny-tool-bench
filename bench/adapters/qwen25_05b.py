@@ -85,6 +85,13 @@ class Qwen25_05B_Adapter(Adapter):
 
         prefill_tokens = int(input_ids.shape[1])
 
+        # Schema-vs-query prefill split: tokenize the user message alone, and the
+        # chat-template-rendered prompt without tools. The delta isolates the
+        # tool-schema cost from chat-template scaffolding + the query itself.
+        query_tokens, schema_tokens = self._prefill_breakdown(
+            messages, tools, prefill_tokens
+        )
+
         from transformers import TextIteratorStreamer
 
         streamer = TextIteratorStreamer(
@@ -128,4 +135,34 @@ class Qwen25_05B_Adapter(Adapter):
             ttft_ms=ttft_ms,
             total_ms=total_ms,
             parse_failed=False,
+            query_tokens=query_tokens,
+            schema_tokens=schema_tokens,
         )
+
+    def _prefill_breakdown(
+        self,
+        messages: list[dict[str, str]],
+        tools: list[dict[str, Any]],
+        prefill_tokens: int,
+    ) -> tuple[int | None, int | None]:
+        """Return (query_tokens, schema_tokens) or (None, None) if computation fails."""
+        try:
+            # User message alone (no template, no scaffolding).
+            query_ids = self._tokenizer(
+                messages[0]["content"], add_special_tokens=False, return_tensors="pt"
+            )["input_ids"]
+            query_tokens = int(query_ids.shape[1])
+            # Chat template WITHOUT tools — captures scaffolding + query.
+            no_tools = self._tokenizer.apply_chat_template(
+                messages,
+                tools=None,
+                add_generation_prompt=True,
+                return_dict=True,
+                return_tensors="pt",
+            )
+            no_tools_prefill = int(no_tools["input_ids"].shape[1])
+            schema_tokens = max(0, prefill_tokens - no_tools_prefill)
+            return query_tokens, schema_tokens
+        except Exception:
+            # Tokenizer quirks (rare model) shouldn't sink a sweep — degrade gracefully.
+            return None, None

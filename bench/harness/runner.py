@@ -7,7 +7,6 @@ disk. Each row carries ``config_hash`` + ``git_commit`` for provenance.
 
 from __future__ import annotations
 
-import dataclasses
 import hashlib
 import importlib
 import itertools
@@ -20,6 +19,7 @@ from typing import Any
 from tqdm import tqdm
 
 from bench.scoring.ast_match import score
+from bench.types import ResultRow
 
 
 _ADAPTERS: dict[str, str] = {
@@ -62,21 +62,26 @@ def run(config: dict, max_n: int | None = None) -> Path:
             gen = adapter.generate(prompt)
             parsed, parse_failed = parser_fn(gen.raw_text)
             correctness = score(parsed, prompt.gold_call, parse_failed, prompt.metadata)
-            row = {
-                "prompt_id": prompt.id,
-                "raw_text": gen.raw_text,
-                "parsed": _asdict_or_none(parsed),
-                "correctness": dataclasses.asdict(correctness),
-                "timing": {
-                    "prefill_tokens": gen.prefill_tokens,
-                    "decode_tokens": gen.decode_tokens,
-                    "ttft_ms": gen.ttft_ms,
-                    "total_ms": gen.total_ms,
-                },
-                "config_hash": config_hash,
-                "git_commit": git_commit,
+            timing: dict[str, float | int] = {
+                "prefill_tokens": gen.prefill_tokens,
+                "decode_tokens": gen.decode_tokens,
+                "ttft_ms": gen.ttft_ms,
+                "total_ms": gen.total_ms,
             }
-            fh.write(json.dumps(row, ensure_ascii=False) + "\n")
+            if gen.query_tokens is not None:
+                timing["query_tokens"] = gen.query_tokens
+            if gen.schema_tokens is not None:
+                timing["schema_tokens"] = gen.schema_tokens
+            row = ResultRow(
+                prompt_id=prompt.id,
+                raw_text=gen.raw_text,
+                parsed=parsed,
+                correctness=correctness,
+                timing=timing,
+                config_hash=config_hash,
+                git_commit=git_commit,
+            )
+            fh.write(row.model_dump_json() + "\n")
 
     return results_path
 
@@ -110,7 +115,3 @@ def _git_commit() -> str:
         return commit if commit else "unknown"
     except (OSError, subprocess.SubprocessError):
         return "unknown"
-
-
-def _asdict_or_none(obj: Any) -> dict | None:
-    return None if obj is None else dataclasses.asdict(obj)

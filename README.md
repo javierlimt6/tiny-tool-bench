@@ -34,6 +34,16 @@ Qwen 2.5 0.5B on BFCL v3 simple (n=10):
 
 Drop `--max-n` for the full sweep (~400 prompts, 10–30 min depending on hardware). Results land in `results/runs/<timestamp>/results.jsonl` for downstream analysis.
 
+The summary also reports a prefill breakdown (schema vs. query tokens) and median TTFT/total latency. On BFCL `simple` the median input is ~266 tokens of which ~250 are tool-schema JSON; the user message is typically 10–20 tokens. Prefill cost therefore scales with the number and complexity of declared tools, not with query length.
+
+## Methodology notes
+
+- **Greedy, single-stream, batch size 1.** No sampling, no batching. Numbers are reproducible per-prompt: same input → bit-identical output.
+- **TTFT is measured for real**, not approximated. `model.generate` runs in a background thread with a `TextIteratorStreamer`; the main thread stamps the first emitted chunk. Reporting `total_ms / decode_tokens` (a common shortcut) would have under-reported TTFT by ~20× on this cohort because prefill dominates.
+- **The p99 latency tail is decode-length-driven, not measurement noise.** On the Phase 1 Qwen sweep, `r(decode_tokens, total_ms) = +0.71` while `r(prefill_tokens, total_ms) = +0.54`. The slowest prompts are ones where the model occasionally emits 100–185 decode tokens (vs. median 36) — that's a model output-length variance, not a scheduling or thermal artefact.
+- **Single canonical parser per format.** No per-prompt fallbacks. If a model emits unparseable output, that is reported as `parse_failed` rather than rescued by a custom handler. This makes the numbers more defensible than leaderboards that permit per-row custom handlers.
+- **Strict accuracy uses BFCL's `possible_answer` semantics**: the gold call is one representative value per argument; the scorer admits any value listed in the upstream `possible_answer` allowed-values list per argument.
+
 ## Note on model downloads
 
 Model weights are not vendored. On first run, Hugging Face Transformers downloads Qwen 2.5 0.5B (~1 GB) to `~/.cache/huggingface/` automatically. Subsequent runs reuse the cache.

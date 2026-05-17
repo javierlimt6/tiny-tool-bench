@@ -1,14 +1,13 @@
-"""Round-trip the canonical dataclasses through dataclasses.asdict (PLAN.md §3)."""
+"""Round-trip the canonical pydantic models via model_dump / model_validate_json (PLAN.md §3)."""
 
 from __future__ import annotations
-
-from dataclasses import asdict
 
 from bench.types import (
     CorrectnessResult,
     GenerationResult,
     ParsedToolCall,
     PromptRecord,
+    ResultRow,
     ToolSchema,
 )
 
@@ -19,27 +18,14 @@ def test_tool_schema_round_trip() -> None:
         description="Get the weather for a city.",
         parameters={"type": "object", "properties": {"city": {"type": "string"}}},
     )
-    restored = ToolSchema(**asdict(obj))
+    restored = ToolSchema.model_validate_json(obj.model_dump_json())
     assert restored == obj
 
 
 def test_parsed_tool_call_round_trip() -> None:
     obj = ParsedToolCall(function_name="get_weather", arguments={"city": "Singapore"})
-    restored = ParsedToolCall(**asdict(obj))
+    restored = ParsedToolCall.model_validate_json(obj.model_dump_json())
     assert restored == obj
-
-
-def _rebuild_prompt_record(d: dict) -> PromptRecord:
-    """asdict() recurses into nested dataclasses, so reconstruct by hand."""
-    return PromptRecord(
-        id=d["id"],
-        source=d["source"],
-        category=d["category"],
-        user_message=d["user_message"],
-        tools=[ToolSchema(**t) for t in d["tools"]],
-        gold_call=ParsedToolCall(**d["gold_call"]) if d["gold_call"] is not None else None,
-        metadata=d["metadata"],
-    )
 
 
 def test_prompt_record_round_trip() -> None:
@@ -55,7 +41,8 @@ def test_prompt_record_round_trip() -> None:
         gold_call=ParsedToolCall(function_name="a", arguments={"x": 1}),
         metadata={"split": "test"},
     )
-    assert _rebuild_prompt_record(asdict(obj)) == obj
+    restored = PromptRecord.model_validate_json(obj.model_dump_json())
+    assert restored == obj
 
 
 def test_prompt_record_round_trip_irrelevance() -> None:
@@ -68,7 +55,8 @@ def test_prompt_record_round_trip_irrelevance() -> None:
         gold_call=None,
         metadata={},
     )
-    assert _rebuild_prompt_record(asdict(obj)) == obj
+    restored = PromptRecord.model_validate_json(obj.model_dump_json())
+    assert restored == obj
 
 
 def test_generation_result_round_trip() -> None:
@@ -79,9 +67,25 @@ def test_generation_result_round_trip() -> None:
         ttft_ms=45.5,
         total_ms=210.0,
         parse_failed=False,
+        query_tokens=12,
+        schema_tokens=98,
     )
-    restored = GenerationResult(**asdict(obj))
+    restored = GenerationResult.model_validate_json(obj.model_dump_json())
     assert restored == obj
+
+
+def test_generation_result_token_split_optional() -> None:
+    """query_tokens/schema_tokens default to None so older runners still validate."""
+    obj = GenerationResult(
+        raw_text="x",
+        prefill_tokens=10,
+        decode_tokens=2,
+        ttft_ms=1.0,
+        total_ms=2.0,
+        parse_failed=False,
+    )
+    assert obj.query_tokens is None
+    assert obj.schema_tokens is None
 
 
 def test_correctness_result_round_trip() -> None:
@@ -93,5 +97,38 @@ def test_correctness_result_round_trip() -> None:
         parse_failed=False,
         notes="value mismatch on `unit`",
     )
-    restored = CorrectnessResult(**asdict(obj))
+    restored = CorrectnessResult.model_validate_json(obj.model_dump_json())
     assert restored == obj
+
+
+def test_result_row_round_trip() -> None:
+    """ResultRow is the JSONL contract — runner writes, CLI reads via this schema."""
+    parsed = ParsedToolCall(function_name="get_weather", arguments={"city": "SG"})
+    correctness = CorrectnessResult(
+        level_1_called=True,
+        level_2_name=True,
+        level_3_args=True,
+        level_4_values=True,
+        parse_failed=False,
+        notes="ok",
+    )
+    row = ResultRow(
+        prompt_id="simple_0",
+        raw_text="<tool_call>...</tool_call>",
+        parsed=parsed,
+        correctness=correctness,
+        timing={
+            "prefill_tokens": 200,
+            "decode_tokens": 25,
+            "ttft_ms": 800.0,
+            "total_ms": 1200.0,
+            "schema_tokens": 180,
+            "query_tokens": 12,
+        },
+        config_hash="abcd1234abcd1234",
+        git_commit="0" * 40,
+    )
+    restored = ResultRow.model_validate_json(row.model_dump_json())
+    assert restored == row
+    assert restored.parsed == parsed
+    assert restored.correctness == correctness
