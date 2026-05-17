@@ -14,11 +14,25 @@ pytest tests/ -v
 
 ## Run a single sweep
 
+Smoke test the plumbing on 10 prompts (downloads Qwen 2.5 0.5B ~1GB on first run):
+
 ```bash
-python scripts/run_one.py configs/qwen25_05b_bfcl_simple.yaml
+python scripts/run_one.py configs/qwen25_05b_bfcl_simple.yaml --max-n 10
 ```
 
-This prints a strict-accuracy table for Qwen 2.5 0.5B on BFCL v3 `simple`. The command becomes available once all four Phase 1 units land; see `PLAN.md` for status.
+You should see something like:
+
+```
+Qwen 2.5 0.5B on BFCL v3 simple (n=10):
+  Strict accuracy: 0.50 [0.20, 0.80]
+  Level 1 (called): 0.90
+  Level 2 (name):   0.70
+  Level 3 (args):   0.60
+  Level 4 (vals):   0.50
+  Parse failures:   1
+```
+
+Drop `--max-n` for the full sweep (~400 prompts, 10–30 min depending on hardware). Results land in `results/runs/<timestamp>/results.jsonl` for downstream analysis.
 
 ## Note on model downloads
 
