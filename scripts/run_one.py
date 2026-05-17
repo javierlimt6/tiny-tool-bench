@@ -75,12 +75,31 @@ def _print_summary(config: dict, summary: dict, timing: dict) -> None:
     if timing.get("query_tokens_p50") is not None:
         print(f"    Query:   {int(timing['query_tokens_p50'])}")
     if timing.get("decode_tokens_p50") is not None:
-        print(f"  Decode  (median tokens):     {int(timing['decode_tokens_p50'])}")
+        if timing.get("decode_tokens_p90") is not None:
+            print(
+                f"  Decode  tokens p50/p90/p99: "
+                f"{int(timing['decode_tokens_p50'])} / "
+                f"{int(timing['decode_tokens_p90'])} / "
+                f"{int(timing['decode_tokens_p99'])}"
+            )
+        else:
+            print(f"  Decode  tokens (median):     {int(timing['decode_tokens_p50'])}")
     if timing.get("ttft_ms_p50") is not None:
         print(
-            f"  Latency (median): ttft={timing['ttft_ms_p50']:.0f}ms  "
-            f"total={timing['total_ms_p50']:.0f}ms  "
-            f"ratio={timing['ttft_ms_p50']/timing['total_ms_p50']:.2f}"
+            f"  ttft_ms  p50/p90/p99: "
+            f"{timing['ttft_ms_p50']:.0f} / "
+            f"{timing['ttft_ms_p90']:.0f} / "
+            f"{timing['ttft_ms_p99']:.0f}"
+        )
+        print(
+            f"  total_ms p50/p90/p99: "
+            f"{timing['total_ms_p50']:.0f} / "
+            f"{timing['total_ms_p90']:.0f} / "
+            f"{timing['total_ms_p99']:.0f}"
+        )
+        print(
+            f"  ttft/total ratio (p50): "
+            f"{timing['ttft_ms_p50']/timing['total_ms_p50']:.2f}"
         )
 
 
