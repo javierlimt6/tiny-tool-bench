@@ -33,6 +33,13 @@ def load_bfcl_simple(path: Path | None = None) -> Iterator[PromptRecord]:
     scorer can check any of the allowed values later.
     """
     src = path if path is not None else _DEFAULT_PATH
+    if not src.exists():
+        raise FileNotFoundError(
+            f"BFCL `simple` data not found at {src}. "
+            "Phase 1 vendors this file at data/bfcl/BFCL_v3_simple.json relative "
+            "to the repo root. Pass an explicit path to load_bfcl_simple() if "
+            "running from a non-editable install."
+        )
     with src.open("r", encoding="utf-8") as fh:
         for line in fh:
             line = line.strip()

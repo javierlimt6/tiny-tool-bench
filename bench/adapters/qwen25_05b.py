@@ -46,6 +46,11 @@ class Qwen25_05B_Adapter(Adapter):
         )
         if self.device is not None:
             self._model = self._model.to(self.device)
+        # Qwen 2.5 ships a generation_config with temperature/top_p/top_k that trigger
+        # spurious "do_sample=False but X is set" warnings under greedy decoding. None
+        # them out so the greedy contract is explicit and the logs aren't noisy.
+        for attr in ("temperature", "top_p", "top_k"):
+            setattr(self._model.generation_config, attr, None)
         self._loaded = True
 
     def generate(self, prompt: PromptRecord) -> GenerationResult:
@@ -65,14 +70,18 @@ class Qwen25_05B_Adapter(Adapter):
             for t in prompt.tools
         ]
 
-        input_ids = self._tokenizer.apply_chat_template(
+        inputs = self._tokenizer.apply_chat_template(
             messages,
             tools=tools,
             add_generation_prompt=True,
+            return_dict=True,
             return_tensors="pt",
         )
+        input_ids = inputs["input_ids"]
+        attention_mask = inputs["attention_mask"]
         if self.device is not None:
             input_ids = input_ids.to(self.device)
+            attention_mask = attention_mask.to(self.device)
 
         prefill_tokens = int(input_ids.shape[1])
 
@@ -86,6 +95,7 @@ class Qwen25_05B_Adapter(Adapter):
         def _run() -> None:
             captured["output_ids"] = self._model.generate(
                 input_ids,
+                attention_mask=attention_mask,
                 streamer=streamer,
                 max_new_tokens=512,
                 do_sample=False,
