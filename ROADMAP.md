@@ -27,21 +27,27 @@ Items explicitly deferred past Phase 1 v0.1.0. See `PLAN.md` for the original ph
 - README replacement with positioning, methodology, results, caveats, prior art.
 - Tag `v0.1.0`.
 
+## Implementation principle for v2/v3
+
+**Reuse existing libraries; don't rebuild.** Apple, llama.cpp, and the MLX community have already shipped the runtime layer for the Mac and iOS tiers. Each v2/v3 item below names the specific library it leans on. The benchmark is the *measurement layer* on top — we don't reimplement model architectures or quantization pipelines that already exist.
+
+The single exception is Needle (custom SAN architecture). On Mac, try `jax[metal]` first; on iPhone, document an "N/A pending Cactus runtime" until upstream publishes its iOS port.
+
 ## v2 additions (post-v1, 15–20h, PLAN.md §5)
 
-1. MacBook Air M4 + MLX adapters for the cohort (Needle deferred to v3).
-2. **INT4 quantisation as first-class result** — generate GGUF/MLX checkpoints, document conversion per model, INT4 in headline tables.
+1. **MacBook Air M4 + MLX adapters** for the cohort (Needle deferred to v3). **Reuse `mlx-lm`** (Apple official): each adapter is a ~60 LOC wrapper around `mlx_lm.load` + `mlx_lm.generate`. Auto-converts HF weights to MLX on first load; native streaming for real TTFT. No bespoke MLX checkpoint conversion needed.
+2. **INT4 quantisation as first-class result.** **Reuse `mlx-lm --quantize`** (one flag) and llama.cpp GGUF Q4_K_M for the five Transformers-based cohort members. Bespoke quant only needed for any model that lacks a published quantized checkpoint on HF Hub.
 3. OOD expansion to 200 prompts with 3 paraphrases each → paraphrase-invariance probe.
 4. Adversarial expansion to 100 prompts incl. prompt-injection-via-tool-output cases.
 5. Sampling-variance bootstrap on bottom-quartile borderline prompts (10-run resampling).
 6. McNemar paired tests vs Needle (`scipy.stats.mcnemar`).
-7. **Tool-count scaling slice** — sweep {1, 5, 15, 30} tools per prompt, plot TTFT vs tool count. Motivated by the Phase 1 finding that schema tokens dominate prefill (`memory/project_phase1_findings.md`). The most directly actionable result for on-device-assistant builders and does not exist publicly for this size class.
-8. Personal-AI slice — 100–200 prompts mimicking on-device assistant usage (timer, message, calendar, weather, music, navigation). Operationalises Cactus's narrow claim.
+7. **Tool-count scaling slice** — sweep {1, 5, 15, 30} tools per prompt, plot TTFT vs tool count. Motivated by the Phase 1 finding that schema tokens dominate prefill. The most directly actionable result for on-device-assistant builders and does not exist publicly for this size class.
+8. Personal-AI slice — 100–200 prompts mimicking on-device assistant usage. **Already shipped early on `v2/personal-ai` branch** during v1 when the BFCL Needle 0.01 result motivated immediate investigation. Merge into main is gated on the v0.1.0 ship.
 
 ## v3 additions (post-v2, 15–20h, PLAN.md §6)
 
-1. iPhone 16 Pro Max via MLX Swift — single largest risk; minimal Swift host app loading MLX models from disk.
-2. `llama-cpp-python` cross-runtime comparison (GGUF Q4_K_M for all GGUF-supporting models).
+1. **iPhone 16 Pro Max via MLX Swift** — the largest single risk. **Reuse `mlx-swift-examples`** (Apple): fork the Mistral/Llama sample iOS app, swap the prompt-source loop to read YAML config + JSONL dataset and write results back via Files app or HTTP. ~1-2 days of Swift work for the five Transformers-based cohort members, NOT a from-scratch port. Needle on iPhone: "N/A pending Cactus runtime" unless their iOS code ships in time.
+2. **`llama-cpp-python` cross-runtime comparison** (GGUF Q4_K_M for all GGUF-supporting models). One adapter file (~80 LOC), pip-installable, Metal on Mac, cross-compiles for iOS. Per-token timing for free. Needle has no GGUF conversion → N/A on this runtime.
 3. Multi-turn BFCL categories (Needle scored N/A explicitly).
 4. LLM-judge stage-2 scoring for OOD failures (frontier model rescores strict-AST rejections).
 5. Energy and cold-start measurement where platform permits.
