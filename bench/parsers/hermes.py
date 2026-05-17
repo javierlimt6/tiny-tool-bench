@@ -29,4 +29,15 @@ def parse_hermes(raw_text: str) -> tuple[ParsedToolCall | None, bool]:
     if not isinstance(obj, dict) or "name" not in obj or "arguments" not in obj:
         return None, True
 
-    return ParsedToolCall(function_name=obj["name"], arguments=obj["arguments"]), False
+    arguments = obj["arguments"]
+    # Some models emit arguments as a JSON-encoded string (vLLM's parser does the
+    # same fallback). Decode once; if it's still not a dict, that's a parse failure.
+    if isinstance(arguments, str):
+        try:
+            arguments = json.loads(arguments)
+        except json.JSONDecodeError:
+            return None, True
+    if not isinstance(arguments, dict):
+        return None, True
+
+    return ParsedToolCall(function_name=obj["name"], arguments=arguments), False

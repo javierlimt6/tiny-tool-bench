@@ -59,7 +59,10 @@ def test_load_is_idempotent(mock_tok: MagicMock, mock_model: MagicMock) -> None:
 def test_generate_uses_streamer_for_real_ttft(mock_streamer_cls: MagicMock) -> None:
     """`generate` must drive a streamer (real TTFT), not divide total by tokens."""
     tokenizer = MagicMock()
-    tokenizer.apply_chat_template.return_value = torch.zeros((1, 10), dtype=torch.long)
+    tokenizer.apply_chat_template.return_value = {
+        "input_ids": torch.zeros((1, 10), dtype=torch.long),
+        "attention_mask": torch.ones((1, 10), dtype=torch.long),
+    }
 
     model = MagicMock()
     model.generate.return_value = torch.zeros((1, 13), dtype=torch.long)
@@ -89,12 +92,40 @@ def test_generate_uses_streamer_for_real_ttft(mock_streamer_cls: MagicMock) -> N
     call_kwargs = mock_streamer_cls.call_args.kwargs
     assert call_kwargs.get("skip_prompt") is True
 
-    # model.generate was invoked with the streamer kwarg (real streaming path).
+    # model.generate was invoked with the streamer AND attention_mask kwargs.
     assert model.generate.called
-    assert "streamer" in model.generate.call_args.kwargs
+    gen_kwargs = model.generate.call_args.kwargs
+    assert "streamer" in gen_kwargs
+    assert "attention_mask" in gen_kwargs
+
+    # apply_chat_template was called with return_dict=True so we got the mask.
+    chat_kwargs = tokenizer.apply_chat_template.call_args.kwargs
+    assert chat_kwargs.get("return_dict") is True
 
     assert result.raw_text == "foo bar!"
     assert result.prefill_tokens == 10
     assert result.decode_tokens == 3
     assert result.parse_failed is False
     assert 0.0 <= result.ttft_ms <= result.total_ms
+
+
+@patch("transformers.AutoModelForCausalLM.from_pretrained")
+@patch("transformers.AutoTokenizer.from_pretrained")
+def test_load_clears_sampling_keys_in_generation_config(
+    mock_tok: MagicMock, mock_model: MagicMock
+) -> None:
+    """Qwen's bundled generation_config defaults trigger spurious warnings under greedy."""
+    mock_tok.return_value = MagicMock()
+    fake_model = MagicMock()
+    fake_model.generation_config = MagicMock()
+    fake_model.generation_config.temperature = 0.7
+    fake_model.generation_config.top_p = 0.8
+    fake_model.generation_config.top_k = 20
+    mock_model.return_value = fake_model
+
+    adapter = Qwen25_05B_Adapter()
+    adapter.load()
+
+    assert fake_model.generation_config.temperature is None
+    assert fake_model.generation_config.top_p is None
+    assert fake_model.generation_config.top_k is None

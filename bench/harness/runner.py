@@ -96,9 +96,12 @@ def _load_dataset(dataset_fn: Any, config: dict) -> Any:
 
 
 def _git_commit() -> str:
+    # Run from inside the package so we read the bench repo's HEAD, not whatever
+    # repo the user happens to be cd'd into when invoking the CLI.
     try:
         result = subprocess.run(
             ["git", "rev-parse", "HEAD"],
+            cwd=Path(__file__).resolve().parent,
             capture_output=True,
             text=True,
             check=False,

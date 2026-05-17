@@ -49,3 +49,29 @@ def test_multiple_blocks_returns_first() -> None:
     assert failed is False
     assert parsed is not None
     assert parsed.function_name == "a"
+
+
+def test_arguments_as_json_string_is_decoded() -> None:
+    """Some models emit arguments as a JSON-encoded string; decode once (vLLM's fallback)."""
+    parsed, failed = parse_hermes(
+        '<tool_call>{"name": "foo", "arguments": "{\\"x\\": 1}"}</tool_call>'
+    )
+    assert failed is False
+    assert parsed == ParsedToolCall(function_name="foo", arguments={"x": 1})
+
+
+def test_arguments_as_non_json_string_fails() -> None:
+    parsed, failed = parse_hermes(
+        '<tool_call>{"name": "foo", "arguments": "not json"}</tool_call>'
+    )
+    assert parsed is None
+    assert failed is True
+
+
+def test_arguments_as_list_fails() -> None:
+    """`set(parsed.arguments)` over a list would silently corrupt scoring; reject."""
+    parsed, failed = parse_hermes(
+        '<tool_call>{"name": "foo", "arguments": [1, 2, 3]}</tool_call>'
+    )
+    assert parsed is None
+    assert failed is True
