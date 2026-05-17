@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tiny-fc-bench"
+version = "0.1.0"
+description = "Standardised function-calling benchmark for sub-2B language models."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+authors = [{ name = "tiny-fc-bench contributors" }]
+keywords = ["function-calling", "benchmark", "small-language-models", "bfcl"]
+
+dependencies = [
+    "torch==2.6.0",
+    "transformers==4.46.3",
+    "pandas==2.2.3",
+    "tqdm==4.67.1",
+    "pyyaml==6.0.2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest==8.3.4"]
+needle = ["jax==0.4.38"]
+report = ["matplotlib==3.9.3"]
+
+[project.scripts]
+tiny-fc-bench = "scripts.run_one:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["bench*", "scripts*"]
+exclude = ["tests*", "data*", "results*", "configs*", "external*"]
