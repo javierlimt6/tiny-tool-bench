@@ -58,27 +58,35 @@ def summarize(
 
 
 def summarize_timing(timings: Iterable[dict]) -> dict:
-    """Report median prefill/query/schema/decode tokens and latencies.
+    """Report tokens (medians) and latency (p50/p90/p99) per run.
 
-    Each input dict is one row's ``timing`` block. Tokens fields may be absent
-    (older adapters didn't report query/schema split); medians skip None.
+    Each input dict is one row's ``timing`` block. Token fields may be absent
+    on older adapters; percentile helpers skip None. Latency tails (p90/p99)
+    are first-class so the schema-scaling-vs-decode-variance story is
+    decidable from the CLI summary without re-loading the JSONL.
     """
     rows = list(timings)
     if not rows:
         return {"n": 0}
 
-    def median(key: str) -> float | None:
+    def pct(key: str, q: float) -> float | None:
         xs = [r[key] for r in rows if r.get(key) is not None]
-        return float(np.median(xs)) if xs else None
+        return float(np.percentile(xs, q)) if xs else None
 
     return {
         "n": len(rows),
-        "prefill_tokens_p50": median("prefill_tokens"),
-        "query_tokens_p50": median("query_tokens"),
-        "schema_tokens_p50": median("schema_tokens"),
-        "decode_tokens_p50": median("decode_tokens"),
-        "ttft_ms_p50": median("ttft_ms"),
-        "total_ms_p50": median("total_ms"),
+        "prefill_tokens_p50": pct("prefill_tokens", 50),
+        "query_tokens_p50": pct("query_tokens", 50),
+        "schema_tokens_p50": pct("schema_tokens", 50),
+        "decode_tokens_p50": pct("decode_tokens", 50),
+        "decode_tokens_p90": pct("decode_tokens", 90),
+        "decode_tokens_p99": pct("decode_tokens", 99),
+        "ttft_ms_p50": pct("ttft_ms", 50),
+        "ttft_ms_p90": pct("ttft_ms", 90),
+        "ttft_ms_p99": pct("ttft_ms", 99),
+        "total_ms_p50": pct("total_ms", 50),
+        "total_ms_p90": pct("total_ms", 90),
+        "total_ms_p99": pct("total_ms", 99),
     }
 
 
