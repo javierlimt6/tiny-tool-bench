@@ -41,8 +41,9 @@ class Qwen25_05B_Adapter(Adapter):
 
         torch_dtype = getattr(torch, self.dtype)
         self._tokenizer = AutoTokenizer.from_pretrained(self.model_id)
+        # transformers 5.x renamed torch_dtype= to dtype=.
         self._model = AutoModelForCausalLM.from_pretrained(
-            self.model_id, torch_dtype=torch_dtype
+            self.model_id, dtype=torch_dtype
         )
         if self.device is not None:
             self._model = self._model.to(self.device)

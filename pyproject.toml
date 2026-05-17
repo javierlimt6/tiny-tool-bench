@@ -14,18 +14,24 @@ keywords = ["function-calling", "benchmark", "small-language-models", "bfcl"]
 
 dependencies = [
     "torch==2.6.0",
-    "transformers==4.46.3",
+    # transformers 5.x is required for LFM2.5 (>=4.55) and Gemma 4 E2B (>=5.0).
+    # See memory/project_phase23_deps.md for the rationale.
+    "transformers>=5.0.0",
+    "accelerate>=0.34.0",       # required at runtime when transformers uses device_map="auto"
     "pandas==2.2.3",
     "tqdm==4.67.1",
     "pyyaml==6.0.2",
     "pydantic>=2.0.0",
     "numpy>=1.26.0",
+    "sentencepiece>=0.2.0",     # FunctionGemma + Granite tokenisers (Phase 3)
+    "einops>=0.8.0",            # LFM2.5 hybrid LIV-conv + GQA (Phase 3)
 ]
 
 [project.optional-dependencies]
 dev = ["pytest==8.3.4"]
-needle = ["jax==0.4.38"]
-report = ["matplotlib==3.9.3"]
+needle = ["jax>=0.4.30"]
+gpu = ["bitsandbytes>=0.43.0"]  # INT4 Gemma 4 E2B on 8GB VRAM
+report = ["matplotlib>=3.9.0"]
 
 [project.scripts]
 tiny-fc-bench = "scripts.run_one:main"

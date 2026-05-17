@@ -28,6 +28,8 @@ _ADAPTERS: dict[str, str] = {
 
 _PARSERS: dict[str, str] = {
     "hermes": "bench.parsers.hermes:parse_hermes",
+    "pythonic": "bench.parsers.pythonic:parse_pythonic",
+    "granite": "bench.parsers.granite:parse_granite",
 }
 
 _DATASETS: dict[str, str] = {
