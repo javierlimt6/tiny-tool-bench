@@ -1,0 +1,6 @@
+display_name: "Needle 26M on personal-AI slice"
+adapter: needle
+parser: json_native
+dataset: personal_ai
+output_dir: results/runs
+seed: 42

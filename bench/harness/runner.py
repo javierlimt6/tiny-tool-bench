@@ -36,6 +36,7 @@ _PARSERS: dict[str, str] = {
 
 _DATASETS: dict[str, str] = {
     "bfcl_v3_simple": "bench.datasets.bfcl_v3:load_bfcl_simple",
+    "personal_ai": "bench.datasets.personal_ai:load_personal_ai",
 }
 
 

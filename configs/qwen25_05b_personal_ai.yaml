@@ -1,0 +1,7 @@
+display_name: "Qwen 2.5 0.5B on personal-AI slice"
+adapter: qwen25_05b
+parser: hermes
+dataset: personal_ai
+output_dir: results/runs
+quantization: fp16
+seed: 42

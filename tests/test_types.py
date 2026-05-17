@@ -45,6 +45,20 @@ def test_prompt_record_round_trip() -> None:
     assert restored == obj
 
 
+def test_prompt_record_round_trip_personal_ai() -> None:
+    # Verify the new "personal_ai" source is accepted
+    pa = PromptRecord(
+        id="pa-1",
+        source="personal_ai",
+        category="timer",
+        user_message="set a timer",
+        tools=[ToolSchema(name="set_timer", description="", parameters={})],
+        gold_call=ParsedToolCall(function_name="set_timer", arguments={"duration_seconds": 300}),
+        metadata={},
+    )
+    assert PromptRecord.model_validate_json(pa.model_dump_json()) == pa
+
+
 def test_prompt_record_round_trip_irrelevance() -> None:
     obj = PromptRecord(
         id="rec-2",
