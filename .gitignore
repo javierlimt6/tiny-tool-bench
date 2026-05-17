@@ -35,3 +35,9 @@ Thumbs.db
 
 # Local working journal — see HISTORY.md
 HISTORY.md
+
+# Local Claude Code guidance — see CLAUDE.md
+CLAUDE.md
+
+# Local working planning doc — never commit
+PLAN.md
